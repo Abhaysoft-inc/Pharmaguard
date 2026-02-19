@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import NavBar from "@/components/NavBar";
 import TwinFinder from "@/components/community/TwinFinder";
 import Feed from "@/components/community/Feed";
 import PostComposer from "@/components/community/PostComposer";
@@ -17,8 +18,9 @@ export default function CommunityPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#f8fafc] pt-24 pb-12 px-4 sm:px-6">
-      <div className="max-w-6xl mx-auto">
+    <main className="min-h-screen bg-[#f8fafc] pb-12 px-4 sm:px-6">
+      <NavBar />
+      <div className="max-w-6xl mx-auto pt-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
           {/* Main Feed Column */}
