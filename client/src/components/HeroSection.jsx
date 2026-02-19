@@ -48,7 +48,7 @@ export default function HeroSection() {
 
       <section
         ref={heroRef}
-        className="hero-grain relative w-full bg-[#f7f5f2] overflow-hidden"
+        className="hero-grain relative w-full bg-[#ffffff] overflow-hidden"
         style={{
           fontFamily: "'Mulish', sans-serif",
           height: "calc(100vh - 82px)",
