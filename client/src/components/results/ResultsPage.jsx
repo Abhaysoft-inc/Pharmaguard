@@ -239,9 +239,7 @@ export default function ResultsPage({ data }) {
                     <span
                       className={`w-2 h-2 rounded-full ${risk(riskName).dot}`}
                     />
-                    <span className="text-[#1a1a1a] font-medium">
-                      {count}
-                    </span>
+                    <span className="text-[#1a1a1a] font-medium">{count}</span>
                     {riskName}
                   </div>
                 ),
@@ -327,10 +325,10 @@ export default function ResultsPage({ data }) {
             <span className="font-semibold text-[#4d6944]">
               Research Use Only —
             </span>{" "}
-            This analysis is for research and educational purposes. All
-            clinical decisions should be made in consultation with a licensed
-            healthcare professional. Results are based on CPIC guidelines and
-            may not account for all factors affecting drug response.
+            This analysis is for research and educational purposes. All clinical
+            decisions should be made in consultation with a licensed healthcare
+            professional. Results are based on CPIC guidelines and may not
+            account for all factors affecting drug response.
           </p>
         </div>
       </div>
@@ -415,8 +413,7 @@ function DrugCard({ result, isOpen, onToggle }) {
     result.clinical_recommendation?.cpic_guideline_level ??
     result.cpicLevel ??
     "";
-  const guidelinesUrl =
-    result.clinical_recommendation?.guidelines_url ?? "";
+  const guidelinesUrl = result.clinical_recommendation?.guidelines_url ?? "";
   const qm = result.quality_metrics;
 
   const cfg = risk(riskLabel);
@@ -534,9 +531,7 @@ function DrugCard({ result, isOpen, onToggle }) {
           {/* Mechanism */}
           {mechanism && (
             <InfoBlock label="Biological Mechanism">
-              <p className="text-[#666] text-sm leading-relaxed">
-                {mechanism}
-              </p>
+              <p className="text-[#666] text-sm leading-relaxed">{mechanism}</p>
             </InfoBlock>
           )}
 
