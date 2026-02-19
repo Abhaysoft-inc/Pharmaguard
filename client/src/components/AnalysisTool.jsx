@@ -1,24 +1,23 @@
 "use client";
 import { useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import FileUpload from "./FileUpload";
 import DrugInput from "./DrugInput";
-import ResultsDisplay from "./ResultsDisplay";
 import { validateVCFFile, validateVCFContent } from "@/utils/vcfValidator";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 export default function AnalysisTool() {
+  const router = useRouter();
   const [file, setFile] = useState(null);
   const [drugs, setDrugs] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [results, setResults] = useState(null);
   const [error, setError] = useState(null);
   const [fileError, setFileError] = useState(null);
 
   // ── File handling ────────────────────────────────────────────────────────────
   const handleFileSelect = useCallback(async (selectedFile) => {
     setFileError(null);
-    setResults(null);
     setError(null);
 
     // 1. Validate size + extension
@@ -47,7 +46,6 @@ export default function AnalysisTool() {
   const handleClearFile = useCallback(() => {
     setFile(null);
     setFileError(null);
-    setResults(null);
     setError(null);
   }, []);
 
@@ -64,7 +62,6 @@ export default function AnalysisTool() {
 
     setLoading(true);
     setError(null);
-    setResults(null);
 
     try {
       const formData = new FormData();
@@ -88,20 +85,15 @@ export default function AnalysisTool() {
       }
 
       const data = await response.json();
-      setResults(data);
 
-      // Scroll to results
-      setTimeout(() => {
-        document.getElementById("results-section")?.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        });
-      }, 100);
+      // Store results and navigate to results page
+      sessionStorage.setItem("pharmaguard_results", JSON.stringify(data));
+      router.push("/results");
     } catch (err) {
       if (err instanceof TypeError && err.message.includes("fetch")) {
         setError(
           "Unable to reach the analysis server. Please ensure the backend is running at " +
-            BACKEND_URL,
+          BACKEND_URL,
         );
       } else {
         setError(
@@ -120,7 +112,7 @@ export default function AnalysisTool() {
       <div className="max-w-5xl mx-auto">
         {/* Section header */}
         <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-2 bg-blue-50 border border-[#dde8f4] text-[#1356be] text-xs font-bold px-3.5 py-1.5 rounded-full mb-5 tracking-widest uppercase">
+          <div className="inline-flex items-center gap-2 bg-[#a9bb9d]/10 border border-[#a9bb9d]/30 text-[#5a7a52] text-xs font-bold px-3.5 py-1.5 rounded-full mb-5 tracking-widest uppercase">
             Analysis Tool
           </div>
           <h2 className="text-3xl sm:text-4xl font-extrabold text-[#0b1e40] mb-4">
@@ -158,8 +150,8 @@ export default function AnalysisTool() {
           className={`
             w-full py-4 rounded-xl font-bold text-base transition-all duration-200 flex items-center justify-center gap-3
             ${canAnalyze
-              ? "bg-[#1356be] hover:bg-[#0e45a0] text-white hover:shadow-xl hover:shadow-blue-200 hover:-translate-y-0.5 cursor-pointer"
-              : "bg-[#f0f5ff] border border-[#dde8f4] text-[#94a3b8] cursor-not-allowed"
+              ? "bg-[#a9bb9d] hover:bg-[#8fa88a] text-white hover:shadow-xl hover:shadow-[#a9bb9d]/30 hover:-translate-y-0.5 cursor-pointer"
+              : "bg-[#f0f7f4] border border-[#a9bb9d]/20 text-[#94a3b8] cursor-not-allowed"
             }
           `}
         >
@@ -205,12 +197,6 @@ export default function AnalysisTool() {
           </div>
         </div>
 
-        {/* ── Results ── */}
-        {results && (
-          <div id="results-section">
-            <ResultsDisplay results={results} />
-          </div>
-        )}
       </div>
     </section>
   );
