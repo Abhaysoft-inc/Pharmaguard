@@ -21,11 +21,11 @@ const navItems = [
     link: "#how-it-works",
     icon: <IconInfoCircle className="h-4 w-4" />,
   },
-  {
-    name: "Analyze",
-    link: "#analyze",
-    icon: <IconFlask className="h-4 w-4" />,
-  },
+  // {
+  //  name: "Analyze",
+  //  link: "#analyze",
+  //  icon: <IconFlask className="h-4 w-4" />,
+  //},
   {
     name: "Genes & Drugs",
     link: "#genes",
