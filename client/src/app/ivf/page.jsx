@@ -153,7 +153,10 @@ export default function IVFPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
           >
-            <CompatibilityReport results={results.compatibility} />
+            <CompatibilityReport
+              results={results.compatibility}
+              aiSummary={results.ai_summary}
+            />
           </motion.div>
         )}
       </div>

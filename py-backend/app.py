@@ -35,7 +35,7 @@ from database import init_db, db
 # from models import ... 
 
 # from models import ... 
-from compatibility import calculate_inheritance
+from compatibility import calculate_inheritance, generate_compatibility_summary
 from matcher import find_matches
 
 app = Flask(__name__)
@@ -278,6 +278,10 @@ def couple_analysis():
     # 3. Calculate Inheritance
     try:
         compatibility_report = calculate_inheritance(user_genes, partner_genes)
+
+        # Generate AI patient-friendly summary
+        ai_summary = generate_compatibility_summary(compatibility_report)
+
         # Convert ObjectIds to strings for JSON serialization
         for g in user_genes:
             if "_id" in g:
@@ -291,6 +295,7 @@ def couple_analysis():
 
         return jsonify({
             "compatibility": compatibility_report,
+            "ai_summary": ai_summary,
             "user_profile": user_genes,
             "partner_profile": partner_genes
         })
