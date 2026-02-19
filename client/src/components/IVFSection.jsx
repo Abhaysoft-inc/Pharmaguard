@@ -48,10 +48,11 @@ export default function IVFSection() {
                             />
                         </div>
 
-                        <Link href="/compatibility" className="inline-flex items-center gap-2 bg-slate-900 text-white px-8 py-4 rounded-xl font-semibold hover:bg-slate-800 transition-all shadow-lg shadow-slate-200 group">
+                        <Link href="/ivf" className="inline-flex items-center gap-2 bg-slate-900 text-white px-8 py-4 rounded-xl font-semibold hover:bg-slate-800 transition-all shadow-lg shadow-slate-200 group">
                             Check Compatibility
                             <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                         </Link>
+
                     </motion.div>
 
                     {/* Visual/Image Area */}
