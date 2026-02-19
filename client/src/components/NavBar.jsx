@@ -31,6 +31,11 @@ const navItems = [
     link: "#genes",
     icon: <IconDna className="h-4 w-4" />,
   },
+  {
+    name: "IVF",
+    link: "/ivf",
+    icon: <IconHome className="h-4 w-4" />, // Replace with an appropriate IVF icon
+  },
 ];
 
 const logo = (
