@@ -4,6 +4,8 @@ import { useSearchParams } from "next/navigation";
 import { IconSend, IconUser, IconMessage, IconArrowLeft } from "@tabler/icons-react";
 import Link from "next/link";
 
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+
 export default function ChatPage() {
     const searchParams = useSearchParams();
     // In a real app, get current user ID from context/auth
@@ -42,7 +44,7 @@ export default function ChatPage() {
 
     const fetchConversations = async () => {
         try {
-            const res = await fetch("http://localhost:5000/api/chat");
+            const res = await fetch(`${API}/api/chat`);
             const data = await res.json();
             setConversations(data.conversations || []);
             setLoading(false);
@@ -58,7 +60,7 @@ export default function ChatPage() {
 
     const fetchMessages = async (convId) => {
         try {
-            const res = await fetch(`http://localhost:5000/api/chat/${convId}/messages`);
+            const res = await fetch(`${API}/api/chat/${convId}/messages`);
             const data = await res.json();
             setMessages(data.messages || []);
         } catch (err) {
@@ -88,7 +90,7 @@ export default function ChatPage() {
             // We'll try to get it from a prop or local storage in a real app.
             // For now, let's fetch it once.
 
-            const meRes = await fetch("http://localhost:5000/api/chat?user_id="); // seed fallback
+            const meRes = await fetch(`${API}/api/chat?user_id=`); // seed fallback
             // This is tricky. 
             // Let's just use a hardcoded fetch to get Ishaan's ID for now?
             // Or assume the conversation object has participants.
@@ -118,7 +120,7 @@ export default function ChatPage() {
             // Or query the DB for "Ishaan_Genetics" in the frontend? No, can't query DB.
 
             // I'll add a helper to fetch my ID.
-            const res = await fetch("http://localhost:5000/api/chat/start", {
+            const res = await fetch(`${API}/api/chat/start`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ target_user_id: activeConversation.other_user_id })
@@ -247,7 +249,7 @@ export default function ChatPage() {
                                     // I will update app.py to accept "me" as sender_id.
 
                                     try {
-                                        await fetch(`http://localhost:5000/api/chat/${activeConversation.id}/messages`, {
+                                        await fetch(`${API}/api/chat/${activeConversation.id}/messages`, {
                                             method: "POST",
                                             headers: { "Content-Type": "application/json" },
                                             body: JSON.stringify({
