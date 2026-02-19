@@ -94,7 +94,7 @@ export default function SignupPage() {
         {/* Top — Logo */}
         <div className="relative z-10">
           <a href="/" className="inline-flex">
-            <img src="/3.svg" alt="PharmaGuard" className="h-8 w-auto" />
+            <img src="/3.svg" alt="PharmaGuard" className="h-16 w-auto" />
           </a>
         </div>
 
