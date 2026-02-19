@@ -34,7 +34,7 @@ const navItems = [
   //  icon: <IconFlask className="h-4 w-4" />,
   //},
   {
-    name: "Family Genetics",
+    name: "Genetic Compatibility Checker",
     link: "/ivf",
     icon: <IconTestPipe className="h-4 w-4" />, // Replace with an appropriate IVF icon
   },

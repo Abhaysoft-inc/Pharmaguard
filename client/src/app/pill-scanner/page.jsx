@@ -31,6 +31,8 @@ import {
   isCriticalRisk,
   isSafe,
 } from "@/utils/pillScannerUtils";
+import { parseVCFFile } from "@/utils/vcfValidator";
+import { useAuth } from "@/context/AuthContext";
 import NavBar from "@/components/NavBar";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -135,6 +137,8 @@ function getRiskConfig(riskLabel) {
 }
 
 export default function PillScannerPage() {
+  const { walletAddress } = useAuth();
+
   // ── Refs ──────────────────────────────────────────────────────────────────
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -145,6 +149,7 @@ export default function PillScannerPage() {
   const resultTimerRef = useRef(null);
   const animFrameRef = useRef(null);
   const feedScrollRef = useRef(null);
+  const vcfInputRef = useRef(null);
 
   // ── State ─────────────────────────────────────────────────────────────────
   const [scanState, setScanState] = useState(SCAN_STATES.IDLE);
@@ -160,6 +165,8 @@ export default function PillScannerPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [flashActive, setFlashActive] = useState(false);
   const [expandedCard, setExpandedCard] = useState(null);
+  const [vcfSource, setVcfSource] = useState("");
+  const [vcfLoadingSource, setVcfLoadingSource] = useState(false);
   const [sessionStats, setSessionStats] = useState({
     total: 0,
     safe: 0,
@@ -167,28 +174,71 @@ export default function PillScannerPage() {
     danger: 0,
   });
 
-  // ── 1. Load patient VCF variants from session/localStorage ────────────────
+  // ── Auto-load VCF silently from analysis or profile on mount ────────────
   useEffect(() => {
+    // 1. Try analysis variants (sessionStorage / localStorage)
     try {
       const raw =
         sessionStorage.getItem("pgx_variants") ||
         localStorage.getItem("pgx_variants") ||
         sessionStorage.getItem("patientVariants") ||
         localStorage.getItem("patientVariants");
-
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length > 0) {
           setPatientVariants(parsed);
           setVcfLoaded(true);
+          setVcfSource("analysis");
+          return;
         }
       }
-    } catch (e) {
-      console.warn(
-        "[PillScanner] Could not load VCF variants from storage:",
-        e,
-      );
+    } catch { }
+
+    // 2. Try first profile VCF file
+    if (walletAddress) {
+      try {
+        const raw = localStorage.getItem(`pg_vcf_${walletAddress}`);
+        if (raw) {
+          const files = JSON.parse(raw);
+          if (files.length > 0) {
+            const entry = files[0];
+            fetch(entry.content)
+              .then((r) => r.blob())
+              .then((blob) => new File([blob], entry.fileName, { type: "text/plain" }))
+              .then((file) => parseVCFFile(file))
+              .then((variants) => {
+                if (variants.length > 0) {
+                  setPatientVariants(variants);
+                  setVcfLoaded(true);
+                  setVcfSource("profile");
+                  sessionStorage.setItem("pgx_variants", JSON.stringify(variants));
+                }
+              })
+              .catch(() => { });
+          }
+        }
+      } catch { }
     }
+  }, [walletAddress]);
+
+  // ── Load VCF from direct file upload ──────────────────────────────────
+  const handleDirectUpload = useCallback(async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setVcfLoadingSource(true);
+    try {
+      const variants = await parseVCFFile(file);
+      if (variants.length > 0) {
+        setPatientVariants(variants);
+        setVcfLoaded(true);
+        setVcfSource("upload");
+        sessionStorage.setItem("pgx_variants", JSON.stringify(variants));
+      }
+    } catch (err) {
+      console.error("[PillScanner] Upload VCF parse error:", err);
+    }
+    setVcfLoadingSource(false);
+    if (vcfInputRef.current) vcfInputRef.current.value = "";
   }, []);
 
   // ── 2. Initialise Tesseract.js worker ─────────────────────────────────────
@@ -578,8 +628,8 @@ export default function PillScannerPage() {
             {/* VCF status badge */}
             <div
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border ${vcfLoaded
-                  ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                  : "bg-amber-50 border-amber-200 text-amber-700"
+                ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                : "bg-amber-50 border-amber-200 text-amber-700"
                 }`}
             >
               <span
@@ -595,20 +645,45 @@ export default function PillScannerPage() {
       </div>
 
       <main className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6">
-        {/* ── VCF Warning ─────────────────────────────────────────────────── */}
+        {/* ── VCF upload / status ────────────────────────────────────── */}
         {!vcfLoaded && (
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 flex items-start gap-3 mb-5">
-            <span className="text-xl mt-0.5">⚠️</span>
-            <div>
-              <p className="font-semibold text-amber-800 text-sm">
-                No genetic profile detected
-              </p>
-              <p className="text-amber-700 text-xs mt-0.5 leading-relaxed">
-                Upload your VCF file on the main analysis page first. The
-                scanner will still identify drugs, but cannot assess
-                pharmacogenomic risk without your genetic data.
-              </p>
+          <div className="rounded-xl border border-neutral-200 bg-white p-3.5 flex items-center justify-between mb-5">
+            <p className="text-xs text-neutral-500">
+              Upload your VCF to enable pharmacogenomic risk assessment
+            </p>
+            <div className="flex items-center gap-2">
+              {vcfLoadingSource && (
+                <div className="w-3.5 h-3.5 border-2 border-neutral-300 border-t-transparent rounded-full animate-spin" />
+              )}
+              <button
+                onClick={() => vcfInputRef.current?.click()}
+                disabled={vcfLoadingSource}
+                className="text-xs font-semibold text-white bg-neutral-800 px-3.5 py-1.5 rounded-lg hover:bg-neutral-700 transition-colors disabled:opacity-50"
+              >
+                Upload VCF
+              </button>
             </div>
+            <input
+              ref={vcfInputRef}
+              type="file"
+              accept=".vcf"
+              onChange={handleDirectUpload}
+              className="hidden"
+            />
+          </div>
+        )}
+
+        {vcfLoaded && (
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 flex items-center justify-between mb-5">
+            <p className="text-xs text-emerald-700 font-medium">
+              VCF loaded — {patientVariants.length} variants
+            </p>
+            <button
+              onClick={() => { setVcfLoaded(false); setPatientVariants([]); setVcfSource(""); }}
+              className="text-[10px] text-emerald-600 hover:text-emerald-800 font-medium hover:underline"
+            >
+              Change
+            </button>
           </div>
         )}
 
@@ -950,8 +1025,8 @@ export default function PillScannerPage() {
                   <button
                     onClick={toggleTorch}
                     className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-200 border cursor-pointer ${torchOn
-                        ? "bg-amber-50 border-amber-300 text-amber-700"
-                        : "border-neutral-200 hover:border-neutral-300 text-neutral-600"
+                      ? "bg-amber-50 border-amber-300 text-amber-700"
+                      : "border-neutral-200 hover:border-neutral-300 text-neutral-600"
                       }`}
                   >
                     <span>{torchOn ? "🔦" : "💡"}</span>
