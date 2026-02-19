@@ -30,6 +30,7 @@ from pgx_knowledgebase import (
     INEFFECTIVE,
     UNKNOWN,
     DrugGeneInteraction,
+    build_diplotype,
     get_genes_for_drug,
     infer_phenotype,
     lookup_interaction,
@@ -511,12 +512,12 @@ def analyze(vcf: VCFFile, drugs: List[str], sample: Optional[str] = None) -> Ana
 
             interaction = lookup_interaction(drug_clean, gene, phenotype)
 
-            # Build diplotype string from detected alleles
-            variant_alleles = [v.star_allele for v in gene_vars if v.is_variant and v.star_allele]
-            if variant_alleles:
-                diplotype = f"*1/{variant_alleles[0]}" if len(variant_alleles) == 1 else f"{variant_alleles[0]}/{variant_alleles[1]}"
-            else:
-                diplotype = "*1/*1"
+            # Build diplotype string using the knowledge base function
+            allele_info_for_diplo = [
+                {"star_allele": v.star_allele, "genotype": v.genotype}
+                for v in gene_vars if v.is_variant and v.star_allele
+            ]
+            diplotype = build_diplotype(gene, allele_info_for_diplo)
 
             if interaction:
                 # Try LLM explanation first, fall back to template
