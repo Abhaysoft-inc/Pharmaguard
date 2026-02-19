@@ -12,17 +12,17 @@ export default function Footer() {
       { label: "dbSNP", href: "https://www.ncbi.nlm.nih.gov/snp/" },
     ],
     Genes: [
-      { label: "CYP2D6", href: "#genes" },
-      { label: "CYP2C19", href: "#genes" },
-      { label: "CYP2C9", href: "#genes" },
-      { label: "SLCO1B1", href: "#genes" },
-      { label: "TPMT", href: "#genes" },
-      { label: "DPYD", href: "#genes" },
+      { label: "CYP2D6", href: "/#genes" },
+      { label: "CYP2C19", href: "/#genes" },
+      { label: "CYP2C9", href: "/#genes" },
+      { label: "SLCO1B1", href: "/#genes" },
+      { label: "TPMT", href: "/#genes" },
+      { label: "DPYD", href: "/#genes" },
     ],
     Navigate: [
-      { label: "How It Works", href: "#how-it-works" },
-      { label: "Analyze VCF", href: "#analyze" },
-      { label: "Genes & Drugs", href: "#genes" },
+      { label: "How It Works", href: "/#how-it-works" },
+      { label: "Analyze VCF", href: "/#analyze" },
+      { label: "Genes & Drugs", href: "/#genes" },
       { label: "Community", href: "/community" },
     ],
   };
@@ -37,7 +37,7 @@ export default function Footer() {
           {/* Brand column */}
           <div className="md:col-span-1 flex flex-col gap-5">
             {/* Logo — same as navbar */}
-            <a href="#" className="inline-flex">
+            <a href="/" className="inline-flex">
               <img src="/3.svg" alt="PharmaGuard" className="h-10 w-auto" />
             </a>
 
@@ -106,7 +106,8 @@ export default function Footer() {
               </ul>
             </div>
           ))}
-        </div>      </div>
+        </div>{" "}
+      </div>
     </footer>
   );
 }

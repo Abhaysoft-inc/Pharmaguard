@@ -15,22 +15,22 @@ import {
 const navItems = [
   {
     name: "Home",
-    link: "#",
+    link: "/",
     icon: <IconHome className="h-4 w-4" />,
   },
   {
     name: "How It Works",
-    link: "#how-it-works",
+    link: "/#how-it-works",
     icon: <IconInfoCircle className="h-4 w-4" />,
   },
   // {
   //  name: "Analyze",
-  //  link: "#analyze",
+  //  link: "/#analyze",
   //  icon: <IconFlask className="h-4 w-4" />,
   //},
   {
     name: "Genes & Drugs",
-    link: "#genes",
+    link: "/#genes",
     icon: <IconDna className="h-4 w-4" />,
   },
   {
@@ -52,14 +52,14 @@ const navItems = [
 ];
 
 const logo = (
-  <a href="#" className="flex items-center gap-2.5 shrink-0">
+  <a href="/" className="flex items-center gap-2.5 shrink-0">
     <img src="/3.svg" alt="PharmaGuard" className="w-20 h-auto" />
   </a>
 );
 
 const ctaButton = (
   <a
-    href="#analyze"
+    href="/#analyze"
     className="relative rounded-full bg-[#a9bb9d] px-4 py-2 text-sm font-semibold text-white transition-all duration-300 hover:bg-[#8fa88a] hover:shadow-lg hover:shadow-[#a9bb9d]/30 flex items-center gap-1.5"
   >
     <IconRocket className="h-3.5 w-3.5" />
@@ -75,7 +75,7 @@ export default function NavBar() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 bg-transparent">
             {/* Logo */}
-            <a href="#" className="flex items-center gap-2.5 shrink-0">
+            <a href="/" className="flex items-center gap-2.5 shrink-0">
               <img src="/3.svg" alt="PharmaGuard" className="w-40 h-auto" />
             </a>
 
@@ -95,7 +95,7 @@ export default function NavBar() {
 
             {/* CTA */}
             <a
-              href="#analyze"
+              href="/#analyze"
               className="hidden md:inline-flex items-center gap-1.5 rounded-full bg-[#a9bb9d] px-5 py-2 text-sm font-semibold text-white hover:bg-[#8fa88a] hover:shadow-lg hover:shadow-[#a9bb9d]/30 transition-all duration-300"
             >
               <IconRocket className="h-3.5 w-3.5" />
@@ -104,7 +104,7 @@ export default function NavBar() {
 
             {/* Mobile: just the CTA pill */}
             <a
-              href="#analyze"
+              href="/#analyze"
               className="md:hidden inline-flex items-center gap-1.5 rounded-full bg-[#a9bb9d] px-4 py-1.5 text-xs font-semibold text-white hover:bg-[#8fa88a] transition-all duration-300"
             >
               <IconRocket className="h-3 w-3" />

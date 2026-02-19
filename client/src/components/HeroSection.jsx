@@ -79,7 +79,7 @@ export default function HeroSection() {
         <div
           className="absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none select-none z-[1]"
           style={{
-            width: "min(400px, 32vw)",
+            width: "min(500px, 48vw)",
             opacity: 0.55,
             filter: "drop-shadow(-8px 0 32px rgba(11,30,64,0.07))",
           }}
@@ -112,7 +112,7 @@ export default function HeroSection() {
         />
 
         {/* ── Content — z-10, sits above both bg images ── */}
-        <div className="relative z-10 w-full max-w-[1180px] mx-auto px-6 sm:px-10 lg:px-14 h-full flex items-center">
+        <div className="relative z-10 w-full max-w-[1180px] mx-auto  h-full flex items-center">
           <div className="flex flex-col gap-4 max-w-[490px]">
             {/* Eyebrow */}
             <div className="flex items-center gap-3" data-reveal>
@@ -126,7 +126,7 @@ export default function HeroSection() {
             <div
               className="font-light leading-[1.1] text-[#0b1e40] tracking-[-0.01em]"
               style={{
-                fontFamily:"Mulish",
+                fontFamily: "Mulish",
                 fontSize: "clamp(2.1rem, 4vw, 3.3rem)",
               }}
               data-reveal
@@ -136,7 +136,7 @@ export default function HeroSection() {
                 <FlipWords words={words} className="!text-[#a9bb9d]" />
               </span>
               <br />
-              <em className="font-[400] italic">Medication Decisions</em>
+              Medication Decisions
             </div>
 
             {/* Rule */}
@@ -160,29 +160,13 @@ export default function HeroSection() {
 
             {/* Stats */}
             <div className="flex gap-6 pt-0.5" data-reveal>
-              {[
-                { value: "300+", label: "Drug-Gene Pairs" },
-                { value: "98%", label: "CPIC Coverage" },
-                { value: "<60s", label: "Analysis Time" },
-              ].map((s) => (
-                <div key={s.label} className="flex flex-col gap-0.5">
-                  <span
-                    className="text-[1.4rem] font-[400] text-[#0b1e40] leading-none"
-                    style={{ fontFamily: "'Cormorant Garamond', serif" }}
-                  >
-                    {s.value}
-                  </span>
-                  <span className="text-[9px] tracking-[0.12em] uppercase text-[#8a93a0]">
-                    {s.label}
-                  </span>
-                </div>
-              ))}
+              {}
             </div>
 
             {/* CTAs */}
             <div className="flex items-center gap-5 pt-1" data-reveal>
               <a
-                href="#analyze"
+                href="/#analyze"
                 className="group inline-flex items-center gap-2 bg-[#a9bb9d] text-[#f7f5f2] rounded-[2px] text-[0.74rem] font-medium tracking-[0.1em] uppercase no-underline relative overflow-hidden transition-all duration-300 hover:shadow-[0_6px_28px_rgba(11,30,64,0.22)] hover:-translate-y-px"
                 style={{ padding: "10px 22px" }}
               >
@@ -202,7 +186,7 @@ export default function HeroSection() {
                 </svg>
               </a>
               <a
-                href="#how-it-works"
+                href="/#how-it-works"
                 className="text-[0.74rem] text-[#0b1e40] opacity-50 no-underline tracking-[0.05em] border-b border-current pb-px transition-opacity duration-200 hover:opacity-80"
               >
                 How it works
