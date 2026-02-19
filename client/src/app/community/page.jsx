@@ -1,12 +1,21 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import NavBar from "@/components/NavBar";
 import TwinFinder from "@/components/community/TwinFinder";
 import Feed from "@/components/community/Feed";
 import PostComposer from "@/components/community/PostComposer";
 
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+
 export default function CommunityPage() {
   const [refreshFeed, setRefreshFeed] = useState(0);
+  const [drugOptions, setDrugOptions] = useState([]);
+  const [geneOptions, setGeneOptions] = useState([]);
+
+  useEffect(() => {
+    fetch(`${API}/drugs`).then((r) => r.json()).then((d) => setDrugOptions(d.drugs || [])).catch(() => { });
+    fetch(`${API}/genes`).then((r) => r.json()).then((d) => setGeneOptions(d.genes || [])).catch(() => { });
+  }, []);
 
   const mockProfile = {
     CYP2D6: { diplotype: "*4/*4", phenotype: "PM", variants: ["rs3892097"] },
@@ -43,8 +52,8 @@ export default function CommunityPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Feed column */}
           <div className="lg:col-span-2 space-y-4">
-            <PostComposer onPostCreated={handlePostCreated} />
-            <Feed refreshTrigger={refreshFeed} />
+            <PostComposer onPostCreated={handlePostCreated} drugOptions={drugOptions} geneOptions={geneOptions} />
+            <Feed refreshTrigger={refreshFeed} drugOptions={drugOptions} geneOptions={geneOptions} />
           </div>
 
           {/* Sidebar */}

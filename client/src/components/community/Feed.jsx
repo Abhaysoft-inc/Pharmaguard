@@ -7,14 +7,18 @@ import {
   IconPill,
   IconDna,
   IconCornerUpRight,
+  IconFilter,
+  IconX,
 } from "@tabler/icons-react";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
-export default function Feed({ refreshTrigger }) {
+export default function Feed({ refreshTrigger, drugOptions = [], geneOptions = [] }) {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [voted, setVoted] = useState({});
+  const [filterDrug, setFilterDrug] = useState("");
+  const [filterGene, setFilterGene] = useState("");
 
   useEffect(() => {
     fetchPosts();
@@ -39,6 +43,19 @@ export default function Feed({ refreshTrigger }) {
       [postId]: prev[postId] === direction ? null : direction,
     }));
   };
+
+  /* ── Collect unique tags from posts for quick-filter chips ── */
+  const usedDrugs = [...new Set(posts.map((p) => p.drug).filter(Boolean))];
+  const usedGenes = [...new Set(posts.map((p) => p.gene).filter(Boolean))];
+
+  /* ── Apply filters ── */
+  const filtered = posts.filter((p) => {
+    if (filterDrug && p.drug !== filterDrug) return false;
+    if (filterGene && p.gene !== filterGene) return false;
+    return true;
+  });
+
+  const hasFilters = filterDrug || filterGene;
 
   if (loading) {
     return (
@@ -78,7 +95,62 @@ export default function Feed({ refreshTrigger }) {
 
   return (
     <div className="space-y-3">
-      {posts.map((post) => {
+      {/* ── Filter chips ── */}
+      {(usedDrugs.length > 0 || usedGenes.length > 0) && (
+        <div className="flex flex-wrap items-center gap-1.5 pb-1">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-[#bbb] mr-1 flex items-center gap-1">
+            <IconFilter className="w-3 h-3" /> Filter
+          </span>
+
+          {usedGenes.map((g) => (
+            <button
+              key={`g-${g}`}
+              onClick={() => setFilterGene(filterGene === g ? "" : g)}
+              className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border transition-all ${filterGene === g
+                  ? "bg-[#a9bb9d]/20 text-[#4d6944] border-[#a9bb9d]/40"
+                  : "bg-white text-[#999] border-[#a9bb9d]/15 hover:border-[#a9bb9d]/30 hover:text-[#6b8760]"
+                }`}
+            >
+              <IconDna className="w-3 h-3" />
+              {g}
+            </button>
+          ))}
+
+          {usedDrugs.map((d) => (
+            <button
+              key={`d-${d}`}
+              onClick={() => setFilterDrug(filterDrug === d ? "" : d)}
+              className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border transition-all ${filterDrug === d
+                  ? "bg-[#a9bb9d]/20 text-[#4d6944] border-[#a9bb9d]/40"
+                  : "bg-white text-[#999] border-[#a9bb9d]/15 hover:border-[#a9bb9d]/30 hover:text-[#6b8760]"
+                }`}
+            >
+              <IconPill className="w-3 h-3" />
+              {d}
+            </button>
+          ))}
+
+          {hasFilters && (
+            <button
+              onClick={() => { setFilterDrug(""); setFilterGene(""); }}
+              className="text-[10px] text-[#bbb] hover:text-[#999] flex items-center gap-0.5 ml-1 transition-colors"
+            >
+              <IconX className="w-3 h-3" /> Clear
+            </button>
+          )}
+        </div>
+      )}
+
+      {filtered.length === 0 && hasFilters && (
+        <div className="text-center py-10 bg-white border border-[#a9bb9d]/15 rounded-2xl">
+          <p className="text-[#999] text-sm">No posts match this filter</p>
+          <button onClick={() => { setFilterDrug(""); setFilterGene(""); }} className="text-xs text-[#a9bb9d] mt-2 hover:underline">
+            Clear filters
+          </button>
+        </div>
+      )}
+
+      {filtered.map((post) => {
         const voteState = voted[post.id];
         const displayVotes =
           (post.upvotes ?? 0) +
@@ -103,7 +175,7 @@ export default function Feed({ refreshTrigger }) {
                   {post.drug}
                 </span>
               )}
-              <span className="text-[11px] text-[#bbb]">u/{post.username}</span>
+              <span className="text-[11px] text-[#bbb]">{post.display_name || `u/${post.username}`}</span>
               <span className="text-[11px] text-[#ddd]">·</span>
               <span className="text-[11px] text-[#bbb]">
                 {new Date(post.created_at).toLocaleDateString()}
@@ -127,8 +199,8 @@ export default function Feed({ refreshTrigger }) {
                 <button
                   onClick={() => handleVote(post.id, "up")}
                   className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-colors ${voteState === "up"
-                      ? "bg-[#a9bb9d]/15 text-[#5a7a52]"
-                      : "text-[#999] hover:bg-[#a9bb9d]/5 hover:text-[#5a7a52]"
+                    ? "bg-[#a9bb9d]/15 text-[#5a7a52]"
+                    : "text-[#999] hover:bg-[#a9bb9d]/5 hover:text-[#5a7a52]"
                     }`}
                 >
                   <IconArrowUp className="w-3.5 h-3.5" />
@@ -138,8 +210,8 @@ export default function Feed({ refreshTrigger }) {
                 <button
                   onClick={() => handleVote(post.id, "down")}
                   className={`px-2.5 py-1.5 transition-colors ${voteState === "down"
-                      ? "bg-red-50 text-red-400"
-                      : "text-[#bbb] hover:bg-red-50 hover:text-red-400"
+                    ? "bg-red-50 text-red-400"
+                    : "text-[#bbb] hover:bg-red-50 hover:text-red-400"
                     }`}
                 >
                   <IconArrowDown className="w-3.5 h-3.5" />

@@ -7,15 +7,15 @@
  *
  * Architecture:
  *   Camera stream (getUserMedia) → Canvas frame capture (requestAnimationFrame)
- *   → Tesseract.js OCR (Web Worker, runs off main thread) → pillScannerUtils
+ *   → Backend /api/ocr (pytesseract, native Tesseract 5) → pillScannerUtils
  *   assessRisk() → Visual overlay (CSS animations, flash/pulse/glow) → Result panel
  *
  * The VCF patient variants are pulled from sessionStorage (set by the existing
  * vcfValidator / pharmacogenomics.js integration). Key: "pgx_variants".
  * If absent, the scanner warns the user to upload their VCF first.
  *
- * Tesseract.js is loaded via dynamic import so it doesn't bloat the initial
- * bundle — it only instantiates when the scanner page is actually visited.
+ * OCR is performed server-side on the Python backend for significantly faster
+ * processing compared to browser-based Tesseract.js / WASM.
  *
  * REDESIGNED: Side-by-side layout with live color-coded scan feed panel.
  * ─────────────────────────────────────────────────────────────────────────────
@@ -31,9 +31,12 @@ import {
   isCriticalRisk,
   isSafe,
 } from "@/utils/pillScannerUtils";
+import { parseVCFFile } from "@/utils/vcfValidator";
+import { useAuth } from "@/context/AuthContext";
 import NavBar from "@/components/NavBar";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 const SCAN_INTERVAL_MS = 800;
 const MIN_OCR_CONFIDENCE = 50;
 const RESULT_HOLD_MS = 6000;
@@ -135,16 +138,18 @@ function getRiskConfig(riskLabel) {
 }
 
 export default function PillScannerPage() {
+  const { walletAddress } = useAuth();
+
   // ── Refs ──────────────────────────────────────────────────────────────────
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const overlayCanvasRef = useRef(null);
-  const tesseractWorkerRef = useRef(null);
   const scanIntervalRef = useRef(null);
   const streamRef = useRef(null);
   const resultTimerRef = useRef(null);
   const animFrameRef = useRef(null);
   const feedScrollRef = useRef(null);
+  const vcfInputRef = useRef(null);
 
   // ── State ─────────────────────────────────────────────────────────────────
   const [scanState, setScanState] = useState(SCAN_STATES.IDLE);
@@ -155,11 +160,13 @@ export default function PillScannerPage() {
   const [ocrRawText, setOcrRawText] = useState("");
   const [torchOn, setTorchOn] = useState(false);
   const [cameraPermission, setCameraPermission] = useState("unknown");
-  const [workerReady, setWorkerReady] = useState(false);
+  const [ocrReady, setOcrReady] = useState(false);
   const [processingProgress, setProcessingProgress] = useState(0);
   const [errorMessage, setErrorMessage] = useState("");
   const [flashActive, setFlashActive] = useState(false);
   const [expandedCard, setExpandedCard] = useState(null);
+  const [vcfSource, setVcfSource] = useState("");
+  const [vcfLoadingSource, setVcfLoadingSource] = useState(false);
   const [sessionStats, setSessionStats] = useState({
     total: 0,
     safe: 0,
@@ -167,68 +174,95 @@ export default function PillScannerPage() {
     danger: 0,
   });
 
-  // ── 1. Load patient VCF variants from session/localStorage ────────────────
+  // ── Auto-load VCF silently from analysis or profile on mount ────────────
   useEffect(() => {
+    // 1. Try analysis variants (sessionStorage / localStorage)
     try {
       const raw =
         sessionStorage.getItem("pgx_variants") ||
         localStorage.getItem("pgx_variants") ||
         sessionStorage.getItem("patientVariants") ||
         localStorage.getItem("patientVariants");
-
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length > 0) {
           setPatientVariants(parsed);
           setVcfLoaded(true);
+          setVcfSource("analysis");
+          return;
         }
       }
-    } catch (e) {
-      console.warn(
-        "[PillScanner] Could not load VCF variants from storage:",
-        e,
-      );
+    } catch { }
+
+    // 2. Try first profile VCF file
+    if (walletAddress) {
+      try {
+        const raw = localStorage.getItem(`pg_vcf_${walletAddress}`);
+        if (raw) {
+          const files = JSON.parse(raw);
+          if (files.length > 0) {
+            const entry = files[0];
+            fetch(entry.content)
+              .then((r) => r.blob())
+              .then((blob) => new File([blob], entry.fileName, { type: "text/plain" }))
+              .then((file) => parseVCFFile(file))
+              .then((variants) => {
+                if (variants.length > 0) {
+                  setPatientVariants(variants);
+                  setVcfLoaded(true);
+                  setVcfSource("profile");
+                  sessionStorage.setItem("pgx_variants", JSON.stringify(variants));
+                }
+              })
+              .catch(() => { });
+          }
+        }
+      } catch { }
     }
+  }, [walletAddress]);
+
+  // ── Load VCF from direct file upload ──────────────────────────────────
+  const handleDirectUpload = useCallback(async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setVcfLoadingSource(true);
+    try {
+      const variants = await parseVCFFile(file);
+      if (variants.length > 0) {
+        setPatientVariants(variants);
+        setVcfLoaded(true);
+        setVcfSource("upload");
+        sessionStorage.setItem("pgx_variants", JSON.stringify(variants));
+      }
+    } catch (err) {
+      console.error("[PillScanner] Upload VCF parse error:", err);
+    }
+    setVcfLoadingSource(false);
+    if (vcfInputRef.current) vcfInputRef.current.value = "";
   }, []);
 
-  // ── 2. Initialise Tesseract.js worker ─────────────────────────────────────
-  const initTesseract = useCallback(async () => {
+  // ── 2. Check backend OCR health ───────────────────────────────────────────
+  const checkOcrBackend = useCallback(async () => {
     try {
-      const { createWorker } = await import("tesseract.js");
-
-      const worker = await createWorker("eng", 1, {
-        logger: (m) => {
-          if (m.status === "recognizing text") {
-            setProcessingProgress(Math.round(m.progress * 100));
-          }
-        },
-      });
-
-      await worker.setParameters({
-        tessedit_pageseg_mode: "1",
-        tessedit_char_whitelist:
-          "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 -.",
-        preserve_interword_spaces: "1",
-      });
-
-      tesseractWorkerRef.current = worker;
-      setWorkerReady(true);
-      console.log("[PillScanner] Tesseract worker initialized ✓");
+      const res = await fetch(`${API_URL}/health`, { method: "GET" });
+      if (res.ok) {
+        setOcrReady(true);
+        console.log("[PillScanner] Backend OCR ready ✓");
+      } else {
+        throw new Error(`Backend health check returned ${res.status}`);
+      }
     } catch (err) {
-      console.error("[PillScanner] Tesseract init failed:", err);
+      console.error("[PillScanner] Backend OCR not reachable:", err);
       setErrorMessage(
-        "OCR engine failed to load. Check your network connection.",
+        `OCR backend not reachable at ${API_URL}. Please ensure the Python backend is running.`,
       );
       setScanState(SCAN_STATES.ERROR);
     }
   }, []);
 
   useEffect(() => {
-    initTesseract();
-    return () => {
-      tesseractWorkerRef.current?.terminate();
-    };
-  }, [initTesseract]);
+    checkOcrBackend();
+  }, [checkOcrBackend]);
 
   // ── 3. Camera lifecycle ───────────────────────────────────────────────────
   const startCamera = useCallback(async () => {
@@ -304,6 +338,7 @@ export default function PillScannerPage() {
   }, [torchOn]);
 
   // ── 5. Frame capture + OCR pipeline ──────────────────────────────────────
+  // ── 5. Frame capture — returns base64 PNG for backend OCR ─────────────────
   const captureFrame = useCallback(() => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -315,6 +350,7 @@ export default function PillScannerPage() {
 
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
+    // Crop to center region (where pill label text is most likely)
     const cropX = canvas.width * 0.1;
     const cropY = canvas.height * 0.2;
     const cropW = canvas.width * 0.8;
@@ -322,6 +358,7 @@ export default function PillScannerPage() {
 
     const croppedData = ctx.getImageData(cropX, cropY, cropW, cropH);
 
+    // Basic grayscale + contrast enhancement before sending to backend
     const data = croppedData.data;
     let totalLuminance = 0;
     const pixelCount = data.length / 4;
@@ -350,33 +387,51 @@ export default function PillScannerPage() {
     tmpCanvas.height = cropH;
     tmpCanvas.getContext("2d").putImageData(croppedData, 0, 0);
 
-    return tmpCanvas;
+    // Return base64 PNG for the backend
+    return tmpCanvas.toDataURL("image/png");
   }, []);
 
-  const runOcr = useCallback(async (frameCanvas) => {
-    if (!tesseractWorkerRef.current || !frameCanvas) return null;
+  // ── 5b. Send frame to backend /api/ocr instead of browser Tesseract ──────
+  const runOcr = useCallback(async (imageBase64) => {
+    if (!imageBase64) return null;
 
     try {
-      const { data } = await tesseractWorkerRef.current.recognize(frameCanvas);
+      setProcessingProgress(30);
 
-      const words = data.words
-        ?.filter((w) => w.confidence >= MIN_OCR_CONFIDENCE)
-        .map((w) => w.text)
-        .join(" ");
+      const res = await fetch(`${API_URL}/api/ocr`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: imageBase64 }),
+      });
+
+      setProcessingProgress(80);
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        console.error("[PillScanner] Backend OCR error:", errData);
+        return null;
+      }
+
+      const result = await res.json();
+      setProcessingProgress(100);
+
+      console.log(
+        `[PillScanner] Backend OCR: ${result.processing_ms?.toFixed(0)}ms, confidence: ${result.confidence}`,
+      );
 
       return {
-        text: data.text,
-        filteredText: words || data.text,
-        confidence: data.confidence,
+        text: result.text,
+        filteredText: result.filteredText || result.text,
+        confidence: result.confidence,
       };
     } catch (err) {
-      console.error("[PillScanner] OCR error:", err);
+      console.error("[PillScanner] OCR fetch error:", err);
       return null;
     }
   }, []);
 
   const processScan = useCallback(async () => {
-    if (scanState === SCAN_STATES.PROCESSING || !workerReady) return;
+    if (scanState === SCAN_STATES.PROCESSING || !ocrReady) return;
 
     setScanState(SCAN_STATES.PROCESSING);
     setProcessingProgress(0);
@@ -453,7 +508,7 @@ export default function PillScannerPage() {
       setAssessment(null);
       setOcrRawText("");
     }, RESULT_HOLD_MS);
-  }, [scanState, workerReady, captureFrame, runOcr, patientVariants]);
+  }, [scanState, ocrReady, captureFrame, runOcr, patientVariants]);
 
   // ── 6. Flash effect ───────────────────────────────────────────────────────
   const triggerFlash = useCallback((signal) => {
@@ -595,20 +650,45 @@ export default function PillScannerPage() {
       </div>
 
       <main className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6">
-        {/* ── VCF Warning ─────────────────────────────────────────────────── */}
+        {/* ── VCF upload / status ────────────────────────────────────── */}
         {!vcfLoaded && (
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 flex items-start gap-3 mb-5">
-            <span className="text-xl mt-0.5">⚠️</span>
-            <div>
-              <p className="font-semibold text-amber-800 text-sm">
-                No genetic profile detected
-              </p>
-              <p className="text-amber-700 text-xs mt-0.5 leading-relaxed">
-                Upload your VCF file on the main analysis page first. The
-                scanner will still identify drugs, but cannot assess
-                pharmacogenomic risk without your genetic data.
-              </p>
+          <div className="rounded-xl border border-neutral-200 bg-white p-3.5 flex items-center justify-between mb-5">
+            <p className="text-xs text-neutral-500">
+              Upload your VCF to enable pharmacogenomic risk assessment
+            </p>
+            <div className="flex items-center gap-2">
+              {vcfLoadingSource && (
+                <div className="w-3.5 h-3.5 border-2 border-neutral-300 border-t-transparent rounded-full animate-spin" />
+              )}
+              <button
+                onClick={() => vcfInputRef.current?.click()}
+                disabled={vcfLoadingSource}
+                className="text-xs font-semibold text-white bg-neutral-800 px-3.5 py-1.5 rounded-lg hover:bg-neutral-700 transition-colors disabled:opacity-50"
+              >
+                Upload VCF
+              </button>
             </div>
+            <input
+              ref={vcfInputRef}
+              type="file"
+              accept=".vcf"
+              onChange={handleDirectUpload}
+              className="hidden"
+            />
+          </div>
+        )}
+
+        {vcfLoaded && (
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 flex items-center justify-between mb-5">
+            <p className="text-xs text-emerald-700 font-medium">
+              VCF loaded — {patientVariants.length} variants
+            </p>
+            <button
+              onClick={() => { setVcfLoaded(false); setPatientVariants([]); setVcfSource(""); }}
+              className="text-[10px] text-emerald-600 hover:text-emerald-800 font-medium hover:underline"
+            >
+              Change
+            </button>
           </div>
         )}
 
@@ -797,9 +877,9 @@ export default function PillScannerPage() {
                         </div>
                         <div className="text-center">
                           <p className="text-neutral-400 text-sm font-medium">
-                            {workerReady
+                            {ocrReady
                               ? "Ready to scan"
-                              : "Loading OCR engine…"}
+                              : "Connecting to OCR backend…"}
                           </p>
                           <p className="text-neutral-600 text-xs mt-1">
                             Point your camera at a pill bottle or prescription
@@ -888,13 +968,13 @@ export default function PillScannerPage() {
               {!cameraActive ? (
                 <button
                   onClick={startCamera}
-                  disabled={!workerReady}
+                  disabled={!ocrReady}
                   className="flex items-center gap-2.5 bg-[#0b1e40] hover:bg-[#162d5c] disabled:opacity-50 disabled:cursor-not-allowed text-white px-8 py-3 rounded-full font-semibold text-sm transition-all duration-200 shadow-lg shadow-[#0b1e40]/25 hover:shadow-xl hover:shadow-[#0b1e40]/30 cursor-pointer"
                 >
-                  {!workerReady ? (
+                  {!ocrReady ? (
                     <>
                       <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Loading OCR…
+                      Connecting…
                     </>
                   ) : (
                     <>
